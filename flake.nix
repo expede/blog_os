@@ -4,6 +4,7 @@
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-23.05";
     flake-utils.url = "github:numtide/flake-utils";
+    devshell.url    = "github:numtide/devshell";
 
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
@@ -16,11 +17,16 @@
     self,
     nixpkgs,
     flake-utils,
+    devshell,
     rust-overlay,
   } @ inputs:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        overlays = [(import rust-overlay)];
+        overlays = [
+          devshell.overlays.default
+          (import rust-overlay)
+        ];
+
         pkgs = import nixpkgs {inherit system overlays;};
 
         rust-toolchain =
@@ -54,9 +60,9 @@
         ];
 
       in rec {
-        devShells.default = pkgs.mkShell {
+        devShells.default = pkgs.devshell.mkShell {
           name = "blog_os";
-          nativeBuildInputs =
+          packages =
             [
               # The ordering of these two items is important. For nightly rustfmt to be used instead of
               # the rustfmt provided by `rust-toolchain`, it must appear first in the list. This is
@@ -74,17 +80,16 @@
               pkgs.darwin.apple_sdk.frameworks.CoreFoundation
               pkgs.darwin.apple_sdk.frameworks.Foundation
             ];
-        };
 
-        commands = [
-          {
-            name = "build";
-            category = "development";
-            command = ''
-              ${pkgs.nodejs_18}/bin/node
-            '';
-          }
-        ];
+          commands = [
+            {
+              name = "run";
+              help = "Run the OS in QEMU";
+              category = "task";
+              command = "cargo run";
+            }
+          ];
+        };
 
         packages.irust = pkgs.rustPlatform.buildRustPackage rec {
           pname = "irust";
